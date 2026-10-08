@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../theme/zen_colors.dart';
 import 'sand_painter.dart';
+import 'sand_background_painter.dart';
 
 enum GardenTool {
   rake,
@@ -19,7 +20,7 @@ class GardenPage extends StatefulWidget {
 
 class _GardenPageState extends State<GardenPage> {
   final List<List<Offset>> _rakePaths = [];
-  final List<Offset> _stones = [];
+  final List<_GardenStoneData> _stones = [];
 
   List<Offset>? _currentRake;
 
@@ -67,8 +68,14 @@ class _GardenPageState extends State<GardenPage> {
       return;
     }
 
+    final stone = _GardenStoneData(
+      position: details.localPosition,
+      size: 28 + (_stones.length % 4) * 4,
+      rotation: (_stones.length % 5 - 2) * 0.08,
+    );
+
     setState(() {
-      _stones.add(details.localPosition);
+      _stones.add(stone);
     });
 
     HapticFeedback.lightImpact();
@@ -169,15 +176,19 @@ class _GardenPageState extends State<GardenPage> {
         child: Stack(
           fit: StackFit.expand,
           children: [
+            const CustomPaint(
+              painter: SandBackgroundPainter(),
+            ),
+
             CustomPaint(
               painter: SandPainter(
                 rakePaths: _rakePaths,
               ),
             ),
 
-            for (final position in _stones)
+            for (final stone in _stones)
               _Stone(
-                position: position,
+                stone: stone,
               ),
           ],
         ),
@@ -309,10 +320,10 @@ class _ToolButton extends StatelessWidget {
 
 class _Stone extends StatefulWidget {
   const _Stone({
-    required this.position,
+    required this.stone,
   });
 
-  final Offset position;
+  final _GardenStoneData stone;
 
   @override
   State<_Stone> createState() => _StoneState();
@@ -342,32 +353,67 @@ class _StoneState extends State<_Stone>
 
   @override
   Widget build(BuildContext context) {
+    final size = widget.stone.size;
+
     return Positioned(
-      left: widget.position.dx - 18,
-      top: widget.position.dy - 14,
+      left: widget.stone.position.dx - size / 2,
+      top: widget.stone.position.dy - size / 2,
       child: ScaleTransition(
         scale: CurvedAnimation(
           parent: _controller,
           curve: Curves.elasticOut,
         ),
-        child: Container(
-          width: 36,
-          height: 28,
-          decoration: BoxDecoration(
-            color: ZenColors.stone,
-            borderRadius: BorderRadius.circular(50),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(
-                  alpha: 0.16,
-                ),
-                blurRadius: 6,
-                offset: const Offset(0, 4),
+        child: Transform.rotate(
+          angle: widget.stone.rotation,
+          child: Container(
+            width: size,
+            height: size * 0.72,
+            decoration: BoxDecoration(
+              color: ZenColors.stone,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(size * 0.45),
+                topRight: Radius.circular(size * 0.35),
+                bottomLeft: Radius.circular(size * 0.35),
+                bottomRight: Radius.circular(size * 0.5),
               ),
-            ],
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(
+                    alpha: 0.16,
+                  ),
+                  blurRadius: 6,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Align(
+              alignment: const Alignment(-0.3, -0.4),
+              child: Container(
+                width: size * 0.25,
+                height: size * 0.12,
+                decoration: BoxDecoration(
+                  color: ZenColors.stoneLight
+                      .withValues(alpha: 0.45),
+                  borderRadius:
+                      BorderRadius.circular(20),
+                ),
+              ),
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+class _GardenStoneData {
+  const _GardenStoneData({
+    required this.position,
+    required this.size,
+    required this.rotation,
+  });
+
+  final Offset position;
+  final double size;
+  final double rotation;
 }
