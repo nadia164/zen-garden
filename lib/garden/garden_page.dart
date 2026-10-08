@@ -4,6 +4,12 @@ import 'package:flutter/services.dart';
 import '../theme/zen_colors.dart';
 import 'sand_painter.dart';
 
+enum GardenTool {
+  rake,
+  stone,
+  plant,
+}
+
 class GardenPage extends StatefulWidget {
   const GardenPage({super.key});
 
@@ -13,17 +19,23 @@ class GardenPage extends StatefulWidget {
 
 class _GardenPageState extends State<GardenPage> {
   final List<List<Offset>> _rakePaths = [];
+  final List<Offset> _stones = [];
 
   List<Offset>? _currentRake;
 
+  GardenTool _selectedTool = GardenTool.rake;
+
   void _startRaking(DragStartDetails details) {
+    if (_selectedTool != GardenTool.rake) {
+      return;
+    }
+
     final newPath = <Offset>[
       details.localPosition,
     ];
 
-    _currentRake = newPath;
-
     setState(() {
+      _currentRake = newPath;
       _rakePaths.add(newPath);
     });
 
@@ -31,6 +43,10 @@ class _GardenPageState extends State<GardenPage> {
   }
 
   void _continueRaking(DragUpdateDetails details) {
+    if (_selectedTool != GardenTool.rake) {
+      return;
+    }
+
     final currentRake = _currentRake;
 
     if (currentRake == null) {
@@ -38,9 +54,7 @@ class _GardenPageState extends State<GardenPage> {
     }
 
     setState(() {
-      currentRake.add(
-        details.localPosition,
-      );
+      currentRake.add(details.localPosition);
     });
   }
 
@@ -48,9 +62,28 @@ class _GardenPageState extends State<GardenPage> {
     _currentRake = null;
   }
 
+  void _placeStone(TapUpDetails details) {
+    if (_selectedTool != GardenTool.stone) {
+      return;
+    }
+
+    setState(() {
+      _stones.add(details.localPosition);
+    });
+
+    HapticFeedback.lightImpact();
+  }
+
+  void _selectTool(GardenTool tool) {
+    setState(() {
+      _selectedTool = tool;
+    });
+  }
+
   void _resetGarden() {
     setState(() {
       _rakePaths.clear();
+      _stones.clear();
       _currentRake = null;
     });
 
@@ -125,19 +158,28 @@ class _GardenPageState extends State<GardenPage> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
 
+        onTapUp: _placeStone,
+
         onPanStart: _startRaking,
 
         onPanUpdate: _continueRaking,
 
         onPanEnd: _finishRaking,
 
-        child: CustomPaint(
-          painter: SandPainter(
-            rakePaths: _rakePaths,
-          ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            CustomPaint(
+              painter: SandPainter(
+                rakePaths: _rakePaths,
+              ),
+            ),
 
-          // This gives CustomPaint an explicit child size.
-          child: const SizedBox.expand(),
+            for (final position in _stones)
+              _Stone(
+                position: position,
+              ),
+          ],
         ),
       ),
     );
@@ -169,19 +211,33 @@ class _GardenPageState extends State<GardenPage> {
             _ToolButton(
               icon: Icons.grass,
               label: 'Rake',
-              selected: true,
-              onTap: () {},
+              selected:
+                  _selectedTool == GardenTool.rake,
+              onTap: () {
+                _selectTool(GardenTool.rake);
+              },
             ),
+
             _ToolButton(
               icon: Icons.circle,
               label: 'Stone',
-              onTap: () {},
+              selected:
+                  _selectedTool == GardenTool.stone,
+              onTap: () {
+                _selectTool(GardenTool.stone);
+              },
             ),
+
             _ToolButton(
               icon: Icons.local_florist,
               label: 'Plant',
-              onTap: () {},
+              selected:
+                  _selectedTool == GardenTool.plant,
+              onTap: () {
+                _selectTool(GardenTool.plant);
+              },
             ),
+
             _ToolButton(
               icon: Icons.water,
               label: 'Reset',
@@ -245,6 +301,71 @@ class _ToolButton extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Stone extends StatefulWidget {
+  const _Stone({
+    required this.position,
+  });
+
+  final Offset position;
+
+  @override
+  State<_Stone> createState() => _StoneState();
+}
+
+class _StoneState extends State<_Stone>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(
+        milliseconds: 450,
+      ),
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: widget.position.dx - 18,
+      top: widget.position.dy - 14,
+      child: ScaleTransition(
+        scale: CurvedAnimation(
+          parent: _controller,
+          curve: Curves.elasticOut,
+        ),
+        child: Container(
+          width: 36,
+          height: 28,
+          decoration: BoxDecoration(
+            color: ZenColors.stone,
+            borderRadius: BorderRadius.circular(50),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(
+                  alpha: 0.16,
+                ),
+                blurRadius: 6,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
         ),
       ),
     );
