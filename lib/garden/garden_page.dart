@@ -1,10 +1,61 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/zen_colors.dart';
 import 'sand_painter.dart';
 
-class GardenPage extends StatelessWidget {
+class GardenPage extends StatefulWidget {
   const GardenPage({super.key});
+
+  @override
+  State<GardenPage> createState() => _GardenPageState();
+}
+
+class _GardenPageState extends State<GardenPage> {
+  final List<List<Offset>> _rakePaths = [];
+
+  List<Offset>? _currentRake;
+
+  void _startRaking(DragStartDetails details) {
+    final newPath = <Offset>[
+      details.localPosition,
+    ];
+
+    _currentRake = newPath;
+
+    setState(() {
+      _rakePaths.add(newPath);
+    });
+
+    HapticFeedback.selectionClick();
+  }
+
+  void _continueRaking(DragUpdateDetails details) {
+    final currentRake = _currentRake;
+
+    if (currentRake == null) {
+      return;
+    }
+
+    setState(() {
+      currentRake.add(
+        details.localPosition,
+      );
+    });
+  }
+
+  void _finishRaking(DragEndDetails details) {
+    _currentRake = null;
+  }
+
+  void _resetGarden() {
+    setState(() {
+      _rakePaths.clear();
+      _currentRake = null;
+    });
+
+    HapticFeedback.lightImpact();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,9 +75,19 @@ class GardenPage extends StatelessWidget {
           child: Column(
             children: [
               _buildHeader(),
+
               Expanded(
-                child: _buildGarden(),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    16,
+                    8,
+                    16,
+                    16,
+                  ),
+                  child: _buildGarden(),
+                ),
               ),
+
               _buildToolbar(),
             ],
           ),
@@ -37,30 +98,45 @@ class GardenPage extends StatelessWidget {
 
   Widget _buildHeader() {
     return const Padding(
-      padding: EdgeInsets.fromLTRB(24, 20, 24, 12),
-      child: Row(
-        children: [
-          Text(
-            'Zen Garden',
-            style: TextStyle(
-              color: ZenColors.ink,
-              fontSize: 24,
-              fontWeight: FontWeight.w300,
-              letterSpacing: 1.5,
-            ),
+      padding: EdgeInsets.fromLTRB(
+        24,
+        20,
+        24,
+        12,
+      ),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          'Zen Garden',
+          style: TextStyle(
+            color: ZenColors.ink,
+            fontSize: 24,
+            fontWeight: FontWeight.w300,
+            letterSpacing: 1.5,
           ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildGarden() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(32),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(32),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+
+        onPanStart: _startRaking,
+
+        onPanUpdate: _continueRaking,
+
+        onPanEnd: _finishRaking,
+
         child: CustomPaint(
-          painter: SandPainter(),
+          painter: SandPainter(
+            rakePaths: _rakePaths,
+          ),
+
+          // This gives CustomPaint an explicit child size.
           child: const SizedBox.expand(),
         ),
       ),
@@ -69,16 +145,26 @@ class GardenPage extends StatelessWidget {
 
   Widget _buildToolbar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+      padding: const EdgeInsets.fromLTRB(
+        24,
+        8,
+        24,
+        24,
+      ),
       child: Container(
         height: 72,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 12,
+        ),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.55),
+          color: Colors.white.withValues(
+            alpha: 0.55,
+          ),
           borderRadius: BorderRadius.circular(36),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          mainAxisAlignment:
+              MainAxisAlignment.spaceEvenly,
           children: [
             _ToolButton(
               icon: Icons.grass,
@@ -99,7 +185,7 @@ class GardenPage extends StatelessWidget {
             _ToolButton(
               icon: Icons.water,
               label: 'Reset',
-              onTap: () {},
+              onTap: _resetGarden,
             ),
           ],
         ),
@@ -126,19 +212,24 @@ class _ToolButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
+        duration: const Duration(
+          milliseconds: 250,
+        ),
         padding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 8,
         ),
         decoration: BoxDecoration(
           color: selected
-              ? ZenColors.sand.withValues(alpha: 0.8)
+              ? ZenColors.sand.withValues(
+                  alpha: 0.8,
+                )
               : Colors.transparent,
           borderRadius: BorderRadius.circular(24),
         ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment:
+              MainAxisAlignment.center,
           children: [
             Icon(
               icon,
